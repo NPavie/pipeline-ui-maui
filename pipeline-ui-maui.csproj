@@ -34,6 +34,7 @@
 	<PropertyGroup>
 	  <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks)</TargetFrameworks>
 	  <PlatformTarget>AnyCPU</PlatformTarget>
+	  <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -58,10 +59,6 @@
 	  <PackageReference Include="CommunityToolkit.Maui" Version="1.0.0" />
 	  <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.2" />
 	  <PackageReference Include="PInvoke.User32" Version="0.7.104" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <ProjectReference Include="..\..\..\JNETCore\JNETCore.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
