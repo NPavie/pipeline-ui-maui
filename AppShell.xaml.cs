@@ -3,8 +3,6 @@
 public partial class AppShell : Shell
 {
 
-    
-    
     public AppShell()
     {
         InitializeComponent();
@@ -28,5 +26,21 @@ public partial class AppShell : Shell
             }
             await GoToAsync($"///jobs/job{job.ID}");
         });
+    }
+
+    protected override void OnNavigating(ShellNavigatingEventArgs args)
+    {
+        base.OnNavigating(args);
+        
+    }
+
+    protected override void OnNavigated(ShellNavigatedEventArgs args)
+    {
+        base.OnNavigated(args);
+        if (Shell.Current != null && Shell.Current.CurrentPage != null)
+        {
+            this.Title = "DAISY Pipeline 2 - " + (Shell.Current.CurrentPage.Title).ToString();
+        }
+
     }
 }

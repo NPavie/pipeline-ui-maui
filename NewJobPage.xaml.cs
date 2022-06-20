@@ -19,22 +19,50 @@ public partial class NewJobPage : ContentPage
             return PipelineWorker.Scripts.Keys.ToList();
         }
     }
+
+    protected override void OnNavigatedTo(NavigatedToEventArgs args)
+    {
+        base.OnNavigatedTo(args);
+        if (this.IsLoaded)
+        {
+            ScriptPicker.Focus();
+            SemanticScreenReader.Announce(ScriptPicker.Title);
+        }
+    }
+
     public NewJobPage()
 	{
 		InitializeComponent();
-        
-        if (!PipelineWorker.isReady)
+
+        //ScriptPicker.SetSemanticFocus();
+
+        if (PipelineWorker.State < PipelineWorker.StateValue.Ready)
         {
+            PipelineWorker.Start();
             ScriptPicker.ItemsSource = new List<string>()
             {
                 "Pipeline is loading, please wait ..."
             };
-            PipelineWorker.Start();
+            
             Task.Run(() =>
             {
-                while (!PipelineWorker.isReady)
+                while (PipelineWorker.State < PipelineWorker.StateValue.Ready)
                 {
                     Task.Delay(100).Wait();
+                    if(PipelineWorker.State == PipelineWorker.StateValue.Stopped)
+                    {
+                        Application.Current.Dispatcher.Dispatch(
+                            () =>
+                            {
+                                ScriptPicker.ItemsSource = new List<string>()
+                                {
+                                    "Pipeline is currently stopped, please check the pipeline status under the pipeline tab"
+                                };
+                            }
+                        );
+                        // Abort the task
+                        return;
+                    }
                 }
                 Application.Current.Dispatcher.Dispatch(
                     () =>
@@ -226,4 +254,5 @@ public partial class NewJobPage : ContentPage
     {
         // reset all parameters to default or empty value
     }
+
 }

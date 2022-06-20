@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:org.daisy.pipeline.ui.Controls"
              x:Class="org.daisy.pipeline.ui.NewJobPage"
-             Title="Start a new Job"
+             Title="New job"
              Padding="10" >
     <ScrollView>
         
@@ -12,7 +12,7 @@
             <Picker x:Name="ScriptPicker"
                     SelectedIndexChanged="OnScriptPickerSelectedIndexChanged"
                     Title="Select a job to perform on the file:">
-                <!-- Compute the list of script that are compatible with the input file -->            
+                <!-- Compute the list of script that are compatible with the input file -->
             </Picker>
         
             <!--When selecting a script, set a list of parameters here -->

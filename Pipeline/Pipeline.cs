@@ -46,7 +46,12 @@ namespace org.daisy
             //string jrePath = Directory.Exists(InstallationPath + @"\jre" + arch) ?
             //    InstallationPath + @"\jre" + (IntPtr.Size * 8).ToString() :
             //    InstallationPath + @"\jre";
-            
+
+            if (ClassPath == "")
+            {
+                throw new Exception("Pipeline jars were not found near the executing assembly, aborting pipeline init.");
+            }
+
             List<string> options = new List<string>();
             options = JavaOptions
                 .Concat(
@@ -56,6 +61,7 @@ namespace org.daisy
                             opts.Add(opt.Key.ToString() + "=" + opt.Value.ToString());
                             return opts;
                         })).ToList();
+            
             options.Add("-Djava.class.path=" + ClassPath);
             try
             {
@@ -133,15 +139,15 @@ namespace org.daisy
 
 
         private static List<string> JarPathes = ClassFolders.Aggregate(
-            new List<string>(),
-            (List<string> classPath, string path) => {
-                return Directory.Exists(path) ?
-                    classPath.Concat(
-                        Directory.EnumerateFiles(path, "*.jar", SearchOption.AllDirectories)
-                    // .Select( fullPath => fullPath.Remove(0, InstallationPath.Length) ) // if needed to convert fullpath to installation relative path 
-                    ).ToList() : classPath;
-            }
-        );
+                new List<string>(),
+                (List<string> classPath, string path) => {
+                    return Directory.Exists(path) ?
+                        classPath.Concat(
+                            Directory.EnumerateFiles(path, "*.jar", SearchOption.AllDirectories)
+                        // .Select( fullPath => fullPath.Remove(0, InstallationPath.Length) ) // if needed to convert fullpath to installation relative path 
+                        ).ToList() : classPath;
+                }
+            );
 
         private static List<string> JavaOptions = new List<string> {
             "-Dcom.sun.management.jmxremote",
@@ -180,9 +186,11 @@ namespace org.daisy
             { "-Dorg.daisy.pipeline.mode", "cli" }
         };
 
-        public string ClassPath = JarPathes.Aggregate(
-            (acc, path) => acc + Path.PathSeparator + path
-        ) + Path.PathSeparator + Path.Combine(InstallationPath, "system", "simple-api");
+        public string ClassPath = JarPathes.Count > 0 
+            ? JarPathes.Aggregate(
+                (acc, path) => acc + Path.PathSeparator + path
+                ) + Path.PathSeparator + Path.Combine(InstallationPath, "system", "simple-api")
+            : "";
 
         #endregion
 

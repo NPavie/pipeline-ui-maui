@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 
 using org.daisy.pipeline.script;
 using static org.daisy.Pipeline;
+using System;
 
 namespace org.daisy
 {
@@ -41,7 +42,7 @@ namespace org.daisy
         /// </summary>
         public static ConcurrentDictionary<string, pipeline.Job> Jobs = new ConcurrentDictionary<string, pipeline.Job>();
 
-        public static ConcurrentQueue<PipelineEventArgs> Events = new ConcurrentQueue<PipelineEventArgs>();
+        public static ConcurrentQueue<PipelineTaskArgs> Events = new ConcurrentQueue<PipelineTaskArgs>();
 
         public enum TasksList
         {
@@ -50,9 +51,9 @@ namespace org.daisy
             //GetJobStatus,
         }
 
-        public class PipelineEventArgs : EventArgs
+        public class PipelineTaskArgs : EventArgs
         {
-            public PipelineEventArgs(TasksList task, params object[] parameters)
+            public PipelineTaskArgs(TasksList task, params object[] parameters)
             {
                 Task = task;
                 Parameters = parameters;
@@ -62,6 +63,17 @@ namespace org.daisy
 
             public object[]? Parameters;
         }
+
+        public class PipelineStateChangedArgs : EventArgs
+        {
+            public StateValue oldState;
+            public StateValue newState;
+
+        }
+
+        public delegate void PipelineStateListener(PipelineStateChangedArgs args);
+
+        public static event PipelineStateListener OnPipelineStateChanged;
 
         private static Thread _worker = null;
 
@@ -87,7 +99,34 @@ namespace org.daisy
         /// </summary>
         private static void run()
         {
-            Pipeline instance = Pipeline.Instance;
+
+            OnPipelineStateChanged?.Invoke(new PipelineStateChangedArgs()
+            {
+                oldState = State,
+                newState = StateValue.Starting
+            });
+            State = StateValue.Starting;
+            
+            Pipeline instance = null;
+            try
+            {
+                instance  = Pipeline.Instance;
+            } catch (Exception e)
+            {
+                OnPipelineStateChanged?.Invoke(new PipelineStateChangedArgs()
+                {
+                    oldState = State,
+                    newState = StateValue.Stopped
+                });
+                State = StateValue.Stopped;
+                Errors = "Could not instanciate/launch the pipeline.\r\n";
+                Errors += e.Message + "\r\n";
+                Errors += e.StackTrace;
+                OnPipelineError?.Invoke(Errors);
+                return;
+                //throw new Exception("Could not instanciate/launch the pipeline. Is the daosy-pipeline folder present in the app ?", e);
+            }
+            
             
             // First retrieve scripts lists
             Scripts["dtbook-to-daisy3"] = new pipeline.Script("dtbook-to-daisy3")
@@ -148,8 +187,13 @@ namespace org.daisy
             {
                 try
                 {
+                    OnPipelineStateChanged?.Invoke(new PipelineStateChangedArgs()
+                    {
+                        oldState = State,
+                        newState = StateValue.Ready
+                    });
                     State = StateValue.Ready;
-                    PipelineEventArgs parsedEvent;
+                    PipelineTaskArgs parsedEvent;
                     while(Events.TryDequeue(out parsedEvent))
                     {
                         State = StateValue.Working;
@@ -183,6 +227,11 @@ namespace org.daisy
                     {
                         if (item.Value.Running)
                         {
+                            OnPipelineStateChanged?.Invoke(new PipelineStateChangedArgs()
+                            {
+                                oldState = State,
+                                newState = StateValue.Working
+                            });
                             State = StateValue.Working;
                             item.Value.requestUpdate(ref instance);
                         }
@@ -194,6 +243,11 @@ namespace org.daisy
                 }
                 Thread.Sleep(100);
             }
+            OnPipelineStateChanged?.Invoke(new PipelineStateChangedArgs()
+            {
+                oldState = State,
+                newState = StateValue.Stopped
+            });
             State = StateValue.Stopped;
             isReady = false;
         }
@@ -213,7 +267,7 @@ namespace org.daisy
             }
             Job newJob = new Job(toRun, parameters);
             newJob.onUpdate = onJobUpdateCallback;
-            Events.Enqueue(new PipelineEventArgs(TasksList.LaunchNewJob, new object[]
+            Events.Enqueue(new PipelineTaskArgs(TasksList.LaunchNewJob, new object[]
             {
                 newJob
             }));
@@ -230,9 +284,24 @@ namespace org.daisy
             {
                 _worker = new Thread(run);
                 _worker.Start();
+                
             } else if (_worker.ThreadState != ThreadState.Running)
             {
-                _worker.Join();
+                stopProcess = true;
+                OnPipelineStateChanged?.Invoke(new PipelineStateChangedArgs()
+                {
+                    oldState = State,
+                    newState = StateValue.Stopping
+                });
+                State = StateValue.Stopping;
+                _worker.Join(5000);
+                OnPipelineStateChanged?.Invoke(new PipelineStateChangedArgs()
+                {
+                    oldState = State,
+                    newState = StateValue.Stopped
+                });
+                State = StateValue.Stopped;
+                stopProcess = false;
                 _worker = new Thread(run);
                 _worker.Start();
             }

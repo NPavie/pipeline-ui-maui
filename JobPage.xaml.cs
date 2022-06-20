@@ -7,11 +7,21 @@ public partial class JobPage : ContentPage
 	{
 		InitializeComponent();
 	}
+    protected override void OnNavigatedTo(NavigatedToEventArgs args)
+    {
+        base.OnNavigatedTo(args);
+        if (this.IsLoaded)
+        {
+            Status.Focus();
+            SemanticScreenReader.Announce(Status.Text);
+        }
+    }
+
 
     public void onJobUpdate(object jobObject, job.JobUpdateEventArgs e)
     {
         // Update progress, logs and set output lists
-        this.Status.Text = e.NewStatus.ToString();
+        this.Status.Text = $"Job is in \"{e.NewStatus}\" state";
         if (e.Messages != null)
         {
             this.Logs.Text = string.Join("\r\n", e.Messages);
@@ -36,6 +46,8 @@ public partial class JobPage : ContentPage
     {
         Job = job;
         Title = $"Job {job.ID}";
+
+
         ScriptName.Text = job.Script.ID;
 
         if(Job.Messages != null && Job.Messages.Count > 0)
