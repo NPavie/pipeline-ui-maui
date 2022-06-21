@@ -3,22 +3,24 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="org.daisy.pipeline.ui.JobPage"
              Title="Job number">
-    <StackLayout>
-        <Label x:Name="Status" Text="Job is Starting"/>
+    <ScrollView>
+        <StackLayout>
+            <Label x:Name="Status" Text="Job is Starting"/>
         
-        <Label x:Name="ScriptName"
-               SemanticProperties.HeadingLevel="Level1"
-                VerticalOptions="Center" 
-                HorizontalOptions="Center" />
+            <Label x:Name="ScriptName"
+                   SemanticProperties.HeadingLevel="Level1"
+                    VerticalOptions="Center" 
+                    HorizontalOptions="Center" />
 
-        <StackLayout x:Name="JobParameters" HorizontalOptions="Center" VerticalOptions="Fill" Spacing="10" />
+            <StackLayout x:Name="JobParameters" HorizontalOptions="Center" VerticalOptions="Fill" Spacing="10" />
 
         
-        <Editor x:Name="Logs" IsReadOnly="True" HeightRequest="250"/>
+            <Editor x:Name="Logs" IsReadOnly="True" HeightRequest="250"/>
         
-        <HorizontalStackLayout>
-            <Button Text="Relaunch"/>
-            <Button Text="Delete" />
-        </HorizontalStackLayout>
-    </StackLayout>
+            <HorizontalStackLayout>
+                <Button Text="Relaunch"/>
+                <Button Text="Delete" />
+            </HorizontalStackLayout>
+        </StackLayout>
+    </ScrollView>
 </ContentPage>

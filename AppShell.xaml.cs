@@ -1,4 +1,6 @@
-﻿namespace org.daisy.pipeline.ui;
+﻿using org.daisy.pipeline.ui.Services;
+
+namespace org.daisy.pipeline.ui;
 
 public partial class AppShell : Shell
 {
@@ -6,6 +8,15 @@ public partial class AppShell : Shell
     public AppShell()
     {
         InitializeComponent();
+        //var trayService = ServiceProvider.GetService<ITrayService>();
+
+        //if (trayService != null)
+        //{
+        //    trayService.Initialize();
+        //    trayService.ClickHandler = () =>
+        //        ServiceProvider.GetService<INotificationService>()
+        //            ?.ShowNotification("Hello Build! 😻 From .NET MAUI", "How's your weather?  It's sunny where we are 🌞");
+        //}
 
         MessagingCenter.Subscribe<NewJobPage, Job>(this, "New job", async (sender, job) =>
         {

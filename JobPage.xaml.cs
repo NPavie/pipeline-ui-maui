@@ -1,3 +1,5 @@
+using org.daisy.pipeline.ui.Services;
+
 namespace org.daisy.pipeline.ui;
 
 public partial class JobPage : ContentPage
@@ -32,13 +34,8 @@ public partial class JobPage : ContentPage
         // Also send notifications on status change
         if (e.OldStatus != e.NewStatus)
         {
-            Services.INotificationService notif = ServiceProvider.Current.GetService<Services.INotificationService>();
-            if(notif != null)
-            {
-                notif.ShowNotification($"Daisy pipeline job {Job.ID}", "Status changed to " + e.NewStatus.ToString());
-            }
-            
-            
+            ServiceProvider.GetService<INotificationService>()
+                    ?.ShowNotification($"Daisy pipeline job {Job.ID}", "Status changed to " + e.NewStatus.ToString());
         }
     }
 

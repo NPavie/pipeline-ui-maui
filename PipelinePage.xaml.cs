@@ -36,6 +36,7 @@ public partial class PipelinePage : ContentPage
                     StatusLabel.Text =  $"DAISY Pipeline 2 is {PipelineWorker.State}";
                     ErrorLog.Text = PipelineWorker.Errors;
                     OutputLog.Text = PipelineWorker.Output;
+                    
                     StartStopPipelineButton.Text = PipelineWorker.State < PipelineWorker.StateValue.Starting
                     ? (PipelineWorker.State == PipelineWorker.StateValue.Stopping
                             ? "Force stop the pipeline"
