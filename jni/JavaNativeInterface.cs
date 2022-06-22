@@ -5,13 +5,7 @@
 // for a list of all the functions 
 // http://download.oracle.com/javase/6/docs/technotes/guides/jni/spec/functions.html
 ////////////////////////////////////////////////////////////////////////////////////////////////
-using System;
-using System.IO;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-
-using Microsoft.Win32;
 using System.Runtime.InteropServices;
 
 namespace org.daisy.jnet {
@@ -61,12 +55,12 @@ namespace org.daisy.jnet {
             // os specific jvm lib names, default for windows 
             string libraryName = "jvm.dll";
             string libFolder = "bin";
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            if (System.OperatingSystem.IsMacOS() || System.OperatingSystem.IsMacCatalyst())
             {
                 libraryName = "libjvm.dylib";
                 libFolder = "lib";
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            else if (System.OperatingSystem.IsLinux())
             {
                 libraryName = "libjvm.so";
                 libFolder = "lib";
@@ -107,15 +101,15 @@ namespace org.daisy.jnet {
                         if (File.Exists(searchResult[0])) {
                             JavaNativeInterface.__jvmDllPath = searchResult[0];
                         }
-                    } else if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                    } else if(System.OperatingSystem.IsWindows()) {
                         // try to access registry
                         foreach (string key in JavaNativeInterface.JAVA_REGISTRY_KEYS) {
-                            string? javaVersion = (string?)Registry.GetValue(key, "CurrentVersion", null);
+                            string? javaVersion = (string?)Microsoft.Win32.Registry.GetValue(key, "CurrentVersion", null);
                             if (javaVersion == null) continue;
                             else {
                                 JavaNativeInterface.__javaVersion = javaVersion;
                                 string javaKey = Path.Combine(key, javaVersion);
-                                string? javaHomeKey = (string?)Registry.GetValue(javaKey, "JavaHome", null);
+                                string? javaHomeKey = (string?)Microsoft.Win32.Registry.GetValue(javaKey, "JavaHome", null);
                                 if (javaHomeKey == null) continue;
                                 else {
                                     searchResult = Directory.GetFiles(javaHomeKey, libraryName, SearchOption.AllDirectories);

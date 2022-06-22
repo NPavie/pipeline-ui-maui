@@ -1,10 +1,5 @@
 ﻿using org.daisy.jnet;
-using org.daisy.pipeline;
-using System.Collections.Concurrent;
 using System.Reflection;
-
-using org.daisy.pipeline.script;
-using static org.daisy.Pipeline;
 
 namespace org.daisy
 {
@@ -17,8 +12,20 @@ namespace org.daisy
         /// <summary>
         /// Get the pipeline 2 root directory
         /// </summary>
+        
+        private static string _path = (System.OperatingSystem.IsMacCatalyst() || System.OperatingSystem.IsMacOS()) ?
+            Path.Combine(
+                Path.GetDirectoryName(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)),
+                "Resources",
+                "daisy-pipeline"
+            ) :
+             Path.Combine(
+                 Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
+                 "daisy-pipeline"
+            );
         public static string InstallationPath {
-            get { return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + @"\daisy-pipeline"; }
+            get { return _path; }
+            set { _path = value; }
         }
 
         private JavaNativeInterface jni;
@@ -39,18 +46,85 @@ namespace org.daisy
         // for thread safety
         private static readonly object padlock = new object();
 
-        private Pipeline() {
+        private Pipeline(
+            string installationPath = "", 
+            PipelineOutputListener onOutput = null,
+            PipelineErrorListener onError = null
+        ) {
+            if (!string.IsNullOrEmpty(installationPath))
+            {
+                InstallationPath = installationPath;
+            }
             // use jnet to execute the conversion on the inputPath
             // check for arch specific jre based on how the jre folders are created by the daisy/pipeline-assembly project (lite-bridge version)
             //string arch = (IntPtr.Size * 8).ToString();
             //string jrePath = Directory.Exists(InstallationPath + @"\jre" + arch) ?
             //    InstallationPath + @"\jre" + (IntPtr.Size * 8).ToString() :
             //    InstallationPath + @"\jre";
+            List<string> ClassFolders = new List<string> {
+                Path.Combine(InstallationPath, "system", "common"),
+                Path.Combine(InstallationPath, "system", "no-osgi"),
+                Path.Combine(InstallationPath, "system", "simple-api"),
+                Path.Combine(InstallationPath, "system", "volatile"),
+                Path.Combine(InstallationPath, "modules")
+            };
+
+            List<string> JarPathes = ClassFolders.Aggregate(
+                new List<string>(),
+                (List<string> classPath, string path) => {
+                    return Directory.Exists(path) ?
+                        classPath.Concat(
+                            Directory.EnumerateFiles(path, "*.jar", SearchOption.AllDirectories)
+                        // .Select( fullPath => fullPath.Remove(0, InstallationPath.Length) ) // if needed to convert fullpath to installation relative path 
+                        ).ToList() : classPath;
+                }
+            );
+            string ClassPath = JarPathes.Count > 0
+            ? JarPathes.Aggregate(
+                (acc, path) => acc + Path.PathSeparator + path
+                ) + Path.PathSeparator + Path.Combine(InstallationPath, "system", "simple-api")
+            : "";
 
             if (ClassPath == "")
             {
                 throw new Exception("Pipeline jars were not found near the executing assembly, aborting pipeline init.");
             }
+            List<string> JavaOptions = new List<string> {
+                "-Dcom.sun.management.jmxremote",
+                "--add-opens=java.base/java.security=ALL-UNNAMED",
+                "--add-opens=java.base/java.net=ALL-UNNAMED",
+                "--add-opens=java.base/java.lang=ALL-UNNAMED",
+                "--add-opens=java.base/java.util=ALL-UNNAMED",
+                "--add-opens=java.naming/javax.naming.spi=ALL-UNNAMED",
+                "--add-opens=java.rmi/sun.rmi.transport.tcp=ALL-UNNAMED",
+                "--add-exports=java.base/sun.net.www.protocol.http=ALL-UNNAMED",
+                "--add-exports=java.base/sun.net.www.protocol.https=ALL-UNNAMED",
+                "--add-exports=java.base/sun.net.www.protocol.jar=ALL-UNNAMED",
+                "--add-exports=jdk.xml.dom/org.w3c.dom.html=ALL-UNNAMED",
+                "--add-exports=jdk.naming.rmi/com.sun.jndi.url.rmi=ALL-UNNAMED"
+            };
+
+            Dictionary<string, string> SystemProps = new Dictionary<string, string> {
+                { "-Dorg.daisy.pipeline.properties", "\"" + Path.Combine(InstallationPath,"etc", "pipeline.properties") + "\"" },
+                // Logback configuration file
+                { "-Dlogback.configurationFile", "\"file:" + Path.Combine(InstallationPath,"etc", "config-logback.xml").Replace("\\","/") + "\"" },
+                // XMLCalabash base configuration file
+                { "-Dorg.daisy.pipeline.xproc.configuration", Path.Combine(InstallationPath,"etc", "config-calabash.xml").Replace("\\","/") },
+                // Version number as returned by "alive" call
+                { "-Dorg.daisy.pipeline.version", "" + PipelineVersion },
+                // Updater configuration
+                { "-Dorg.daisy.pipeline.updater.bin", "\"" + Path.Combine(InstallationPath,"updater", "pipeline-updater").Replace("\\","/") + "\"" },
+                { "-Dorg.daisy.pipeline.updater.deployPath", "\"" + InstallationPath.Replace("\\","/") + "/\"" },
+                { "-Dorg.daisy.pipeline.updater.releaseDescriptor", "\"" + Path.Combine(InstallationPath,"etc", "releaseDescriptor.xml").Replace("\\","/") + "\"" },
+                // Workaround for encoding bugs on Windows
+                { "-Dfile.encoding", "UTF8" },
+                // to make ${org.daisy.pipeline.data}, ${org.daisy.pipeline.logdir} and ${org.daisy.pipeline.mode}
+                // available in config-logback.xml and felix.properties
+                // note that config-logback.xml is the only place where ${org.daisy.pipeline.mode} is used
+                { "-Dorg.daisy.pipeline.data", AppDataFolder },
+                { "-Dorg.daisy.pipeline.logdir", "\"" + LogsFolder + "\"" },
+                { "-Dorg.daisy.pipeline.mode", "cli" }
+            };
 
             List<string> options = new List<string>();
             options = JavaOptions
@@ -84,6 +158,31 @@ namespace org.daisy
         private void Dispose() {
             jni.Dispose();
             jni = null;
+        }
+
+        public static Pipeline getInstance(
+            string installationPath = "",
+            PipelineOutputListener onOutput = null,
+            PipelineErrorListener onError = null)
+        {
+            lock (padlock)
+            {
+                if (instance == null)
+                {
+                    instance = new Pipeline(installationPath, onOutput, onError);
+                } else
+                {
+                    if(onOutput != null)
+                    {
+                        instance.SetPipelineOutputListener(onOutput);
+                    }
+                    if (onError != null)
+                    {
+                        instance.SetPipelineErrorListener(onError);
+                    }
+                }
+                return instance;
+            }
         }
 
         /// <summary>
@@ -129,68 +228,6 @@ namespace org.daisy
             get { return Path.Combine(AppDataFolder, @"log"); }
         }
 
-        private static List<string> ClassFolders = new List<string> {
-            Path.Combine(InstallationPath, "system", "common"),
-            Path.Combine(InstallationPath, "system", "no-osgi"),
-            Path.Combine(InstallationPath, "system", "simple-api"),
-            Path.Combine(InstallationPath, "system", "volatile"),
-            Path.Combine(InstallationPath, "modules")
-        };
-
-
-        private static List<string> JarPathes = ClassFolders.Aggregate(
-                new List<string>(),
-                (List<string> classPath, string path) => {
-                    return Directory.Exists(path) ?
-                        classPath.Concat(
-                            Directory.EnumerateFiles(path, "*.jar", SearchOption.AllDirectories)
-                        // .Select( fullPath => fullPath.Remove(0, InstallationPath.Length) ) // if needed to convert fullpath to installation relative path 
-                        ).ToList() : classPath;
-                }
-            );
-
-        private static List<string> JavaOptions = new List<string> {
-            "-Dcom.sun.management.jmxremote",
-            "--add-opens=java.base/java.security=ALL-UNNAMED",
-            "--add-opens=java.base/java.net=ALL-UNNAMED",
-            "--add-opens=java.base/java.lang=ALL-UNNAMED",
-            "--add-opens=java.base/java.util=ALL-UNNAMED",
-            "--add-opens=java.naming/javax.naming.spi=ALL-UNNAMED",
-            "--add-opens=java.rmi/sun.rmi.transport.tcp=ALL-UNNAMED",
-            "--add-exports=java.base/sun.net.www.protocol.http=ALL-UNNAMED",
-            "--add-exports=java.base/sun.net.www.protocol.https=ALL-UNNAMED",
-            "--add-exports=java.base/sun.net.www.protocol.jar=ALL-UNNAMED",
-            "--add-exports=jdk.xml.dom/org.w3c.dom.html=ALL-UNNAMED",
-            "--add-exports=jdk.naming.rmi/com.sun.jndi.url.rmi=ALL-UNNAMED"
-        };
-
-        private static Dictionary<string, string> SystemProps = new Dictionary<string, string> {
-            { "-Dorg.daisy.pipeline.properties", "\"" + Path.Combine(InstallationPath,"etc", "pipeline.properties") + "\"" },
-            // Logback configuration file
-            { "-Dlogback.configurationFile", "\"file:" + Path.Combine(InstallationPath,"etc", "config-logback.xml").Replace("\\","/") + "\"" },
-            // XMLCalabash base configuration file
-            { "-Dorg.daisy.pipeline.xproc.configuration", Path.Combine(InstallationPath,"etc", "config-calabash.xml").Replace("\\","/") },
-            // Version number as returned by "alive" call
-            { "-Dorg.daisy.pipeline.version", "" + PipelineVersion },
-            // Updater configuration
-            { "-Dorg.daisy.pipeline.updater.bin", "\"" + Path.Combine(InstallationPath,"updater", "pipeline-updater").Replace("\\","/") + "\"" },
-            { "-Dorg.daisy.pipeline.updater.deployPath", "\"" + InstallationPath.Replace("\\","/") + "/\"" },
-            { "-Dorg.daisy.pipeline.updater.releaseDescriptor", "\"" + Path.Combine(InstallationPath,"etc", "releaseDescriptor.xml").Replace("\\","/") + "\"" },
-            // Workaround for encoding bugs on Windows
-            { "-Dfile.encoding", "UTF8" },
-            // to make ${org.daisy.pipeline.data}, ${org.daisy.pipeline.logdir} and ${org.daisy.pipeline.mode}
-            // available in config-logback.xml and felix.properties
-            // note that config-logback.xml is the only place where ${org.daisy.pipeline.mode} is used
-            { "-Dorg.daisy.pipeline.data", AppDataFolder },
-            { "-Dorg.daisy.pipeline.logdir", "\"" + LogsFolder + "\"" },
-            { "-Dorg.daisy.pipeline.mode", "cli" }
-        };
-
-        public string ClassPath = JarPathes.Count > 0 
-            ? JarPathes.Aggregate(
-                (acc, path) => acc + Path.PathSeparator + path
-                ) + Path.PathSeparator + Path.Combine(InstallationPath, "system", "simple-api")
-            : "";
 
         #endregion
 

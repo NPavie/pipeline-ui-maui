@@ -1,6 +1,7 @@
 ﻿using org.daisy.pipeline;
 using System.Collections.Concurrent;
 
+
 using org.daisy.pipeline.script;
 using static org.daisy.Pipeline;
 using System;
@@ -110,7 +111,7 @@ namespace org.daisy
             Pipeline instance = null;
             try
             {
-                instance  = Pipeline.Instance;
+                instance  = Pipeline.getInstance(onOutput:OnPipelineOutput,onError:OnPipelineError);
             } catch (Exception e)
             {
                 OnPipelineStateChanged?.Invoke(new PipelineStateChangedArgs()
@@ -180,8 +181,6 @@ namespace org.daisy
 
                 }
             };
-            instance.SetPipelineErrorListener(OnPipelineError);
-            instance.SetPipelineOutputListener(OnPipelineOutput);
             isReady = true;
             while (!stopProcess)
             {
