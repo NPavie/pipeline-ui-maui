@@ -1,14 +1,8 @@
 {
   "profiles": {
     "Windows Machine": {
-      "commandName": "MsixPackage",
+      "commandName": "Project",
       "nativeDebugging": false
-    },
-    "Profil 1": {
-      "commandName": "Executable",
-      "executablePath": "C:\\Users\\npavie\\Nextcloud\\Devs\\pipelineui\\MAUI\\pipeline-ui-maui\\bin\\Debug\\net6.0-windows10.0.19041.0\\win10-x64\\pipeline-ui-maui.exe",
-      "nativeDebugging": true,
-      "jsWebView2Debugging": true
     }
   }
 }
