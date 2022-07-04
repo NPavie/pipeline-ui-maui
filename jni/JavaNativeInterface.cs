@@ -86,8 +86,7 @@ namespace org.daisy.jnet {
             if (JavaNativeInterface.__jvmDllPath.Length == 0) {
                 // Search for a java runtime near the current assembly
                 string codeBase = Assembly.GetExecutingAssembly().Location;
-                UriBuilder uri = new UriBuilder(codeBase);
-                string assemblyDir = Path.GetDirectoryName(Uri.UnescapeDataString(uri.Path)) + Path.DirectorySeparatorChar;
+                string assemblyDir = Path.GetDirectoryName(codeBase) + Path.DirectorySeparatorChar;
                 
                 string[] searchResult = Directory.GetFiles(assemblyDir, libraryName, SearchOption.AllDirectories);
 
